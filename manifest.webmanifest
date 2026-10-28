@@ -1,0 +1,17 @@
+{
+  "name": "دفترچه: حافظه‌ی سفارش و مشتری",
+  "short_name": "دفترچه",
+  "description": "لینک سفارش، تابلوی سفارش‌ها، پیام وضعیت، حافظه‌ی مشتری و یادآور خرید دوباره برای فروشنده‌های دایرکتی",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./#/home",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f4ef",
+  "theme_color": "#b4432c",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

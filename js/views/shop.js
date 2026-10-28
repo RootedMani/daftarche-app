@@ -52,18 +52,24 @@ export const landing = {
   },
   actions: {
     "start-demo"() {
-      replaceState(buildDemo());
-      // the random history would surface a dozen reminders; keep the scripted ones and mark the rest as already sent
-      for (const r of reminders()) if (!DEMO_REMINDER_PHONES.includes(r.customer.phone)) markReminder(r.key, { done: true, at: now() - DAY });
+      loadDemo();
       toast("دفترچه‌ی نمایشی باز شد", "ok");
       go("#/home");
     },
+    // loads the demo seller too, so after ordering the judge can follow the order into the seller's notebook
     async "customer-demo"() {
-      const d = buildDemo();
-      location.href = await orderFormLink(d.shop, d.products);
+      loadDemo();
+      const st = getState();
+      location.href = await orderFormLink(st.shop, st.products);
     },
   },
 };
+
+function loadDemo() {
+  replaceState(buildDemo());
+  // the random history would surface a dozen reminders; keep the scripted ones and mark the rest as already sent
+  for (const r of reminders()) if (!DEMO_REMINDER_PHONES.includes(r.customer.phone)) markReminder(r.key, { done: true, at: now() - DAY });
+}
 
 export function logoMark() {
   return `<svg class="logomark" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="3" width="22" height="26" rx="4" fill="currentColor"/><path d="M10 3v26" stroke="#fff" stroke-width="2" opacity=".55"/><path d="M14 11h9M14 16h9M14 21h6" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>`;
@@ -314,6 +320,9 @@ export const share = {
     const st = getState();
     const link = await orderFormLink(st.shop, st.products);
     root.querySelector("#order-link input").value = link;
+    if (link.length > 800) {
+      root.querySelector("#order-link").insertAdjacentHTML("afterend", `<div class="hello bad small">لینک شما ${fa(link.length)} نویسه است. دایرکت اینستاگرام پیام‌های خیلی بلند را نمی‌فرستد؛ با غیرفعال کردن چند محصول کم‌فروش در «محصولات»، آن را کوتاه‌تر کنید.</div>`);
+    }
     root.querySelector("#open-as-customer").href = link;
     fillSend(root, "reply-order", savedReply(st.shop, link));
     fillSend(root, "reply-track", trackingReply());

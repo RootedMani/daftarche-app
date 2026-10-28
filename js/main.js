@@ -125,9 +125,10 @@ setRerender(rerender);
 const GLOBAL = {
   "copy-send": (el) => copyFrom(el.dataset.target),
   "share-send": (el) => shareFrom(el.dataset.target),
+  // same tab: popup blockers stop window.open after an await, and storage is shared so the way back still works
   async "demo-customer"() {
     const st = getState();
-    window.open(await orderFormLink(st.shop, st.products), "_blank", "noopener");
+    location.href = await orderFormLink(st.shop, st.products);
   },
   "exit-demo"() {
     if (!confirm("از نسخه‌ی نمایشی خارج شوید؟ داده‌های نمایشی پاک می‌شوند.")) return;
@@ -141,7 +142,7 @@ document.addEventListener("click", (e) => {
   if (!el) return;
   const fn = GLOBAL[el.dataset.act] || ACTIONS[el.dataset.act];
   if (!fn) return;
-  e.preventDefault();
+  if (!("keepDefault" in el.dataset)) e.preventDefault();
   Promise.resolve(fn(el, e, root, current.arg, rerender)).catch((err) => { console.error(err); toast("خطایی پیش آمد", "bad"); });
 });
 

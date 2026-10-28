@@ -4,7 +4,7 @@
 import { makeLink } from "./codec.js";
 import { fa, num, toman } from "./util.js";
 import { jDay } from "./jalali.js";
-import { STATUS } from "./store.js";
+import { STATUS, productById, computeTotals } from "./store.js";
 
 // ------------------------------------------------------------------ seller -> customer: order form
 
@@ -19,8 +19,8 @@ export function orderFormLink(shop, products, prefill) {
       sh: shop.shipping.map((m) => [m.id, m.name, m.fee]),
       f: shop.freeShipMin || 0,
       d: shop.askDate ? 1 : 0,
-      cf: shop.customFields.map((f) => [f.id, f.label, f.hint || ""]),
-      w: shop.welcome || "",
+      cf: shop.customFields.map((f) => (prefill || !f.hint ? [f.id, f.label] : [f.id, f.label, f.hint])),
+      w: prefill ? "" : shop.welcome || "", // prefilled links go out in reminders; keep them short
     },
     p: products.filter((x) => x.active !== false).map((x) => [x.id, x.name, x.price]),
   };
@@ -58,24 +58,30 @@ export function readOrderForm(p) {
 
 // ------------------------------------------------------------------ customer -> seller: the submitted order
 
+// Instagram caps DM length, so this carries only what the seller's notebook cannot rebuild:
+// product names, shipping name and totals are recomputed from the seller's own catalogue on import.
 export function incomingLink(o, handle) {
   const c = o.customer;
-  return makeLink("i", {
+  const p = {
     v: 1, id: o.id, t: o.createdAt, h: handle,
-    c: { n: c.name, ph: c.phone, ig: c.ig, ci: c.city, a: c.address, pc: c.postal },
-    i: o.items.map((it) => [it.pid, it.qty, it.price, it.name]),
-    sh: o.shipId, shn: o.shipName, sf: o.shipFee, sc: o.shipCost, fs: o.freeShip ? 1 : 0,
-    st: o.subtotal, tot: o.total, sp: o.specs, nb: o.needBy, no: o.note, pr: o.payRef,
-  });
+    c: { n: c.name, ph: c.phone, ig: c.ig || undefined, ci: c.city, a: c.address, pc: c.postal || undefined },
+    i: o.items.map((it) => [it.pid, it.qty, it.price]),
+    sh: o.shipId,
+  };
+  if (Object.keys(o.specs || {}).length) p.sp = o.specs;
+  if (o.needBy) p.nb = o.needBy;
+  if (o.note) p.no = o.note;
+  if (o.payRef) p.pr = o.payRef;
+  return makeLink("i", p);
 }
 
 export function readIncoming(p) {
+  const items = p.i.map(([pid, qty, price, name]) => ({ pid, qty, price, name: name || productById(pid)?.name || `محصول ${pid}` }));
   return {
     id: p.id, createdAt: p.t, handle: p.h, source: "link",
     customer: { name: p.c.n || "", phone: p.c.ph || "", ig: p.c.ig || "", city: p.c.ci || "", address: p.c.a || "", postal: p.c.pc || "" },
-    items: p.i.map(([pid, qty, price, name]) => ({ pid, qty, price, name })),
-    shipId: p.sh, shipName: p.shn, shipFee: p.sf, shipCost: p.sc, freeShip: !!p.fs,
-    subtotal: p.st, total: p.tot, specs: p.sp || {}, needBy: p.nb || null, note: p.no || "", payRef: p.pr || "",
+    items, shipId: p.sh, ...computeTotals(items, p.sh),
+    specs: p.sp || {}, needBy: p.nb || null, note: p.no || "", payRef: p.pr || "",
   };
 }
 
@@ -137,13 +143,13 @@ export function statusMessage(o, shop, link) {
 export function reminderMessage(r, shop, link) {
   const h = hi(r.customer.name);
   if (r.type === "occasion") {
-    return `${h} 🎉 پارسال حوالی ${jDay(r.due)} ${r.label ? `برای ${r.label} ` : ""}از ${shop.name} سفارش داده بودید. امسال هم در خدمتیم؛ سفارش قبلی‌تان آماده است و فقط یک تأیید می‌خواهد:\n${link}`;
+    return `${h} 🎉 پارسال حوالی ${jDay(r.due)} ${r.label ? `برای ${r.label} ` : ""}از ${shop.name} سفارش دادید. امسال هم در خدمتیم؛ سفارش قبلی با یک تأیید آماده است:\n${link}`;
   }
   const days = Math.max(1, Math.round((Date.now() - r.order.createdAt) / 86400000));
   const names = r.entries.map((e) => e.product.name);
   const what = names.length > 1 ? `${names.slice(0, -1).join("، ")} و ${names[names.length - 1]}` : names[0];
   const when = r.entries.length > 1 ? "" : `حدود ${fa(days)} روز پیش `;
-  return `${h} 🌿 ${when}${what} از ${shop.name} گرفتید؛ گفتیم شاید رو به اتمام باشد. اگر بخواهید، همان سفارش آماده است و فقط یک تأیید می‌خواهد:\n${link}`;
+  return `${h} 🌿 ${when}${what} گرفتید؛ شاید رو به اتمام باشد. همان سفارش آماده است و فقط یک تأیید می‌خواهد:\n${link}`;
 }
 
 export function savedReply(shop, link) {

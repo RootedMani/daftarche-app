@@ -176,8 +176,9 @@ export const orderForm = {
       if (fd.get("remember")) me.profiles[shop.handle] = { ...order.customer, specs };
       else delete me.profiles[shop.handle];
       me.orders = [{ shop: shop.name, handle: shop.handle, id: order.id, at: order.createdAt, total: order.total }, ...(me.orders || [])].slice(0, 20);
-      saveMe(me);
       lastSent = { order, text, link, shop };
+      me.lastSent = lastSent; // survives the tab reloading when the customer comes back from Instagram
+      saveMe(me);
       location.hash = "#sent";
     },
   },
@@ -187,6 +188,7 @@ export const orderForm = {
 
 export const sentPage = {
   render() {
+    if (!lastSent) lastSent = loadMe().lastSent || null;
     if (!lastSent) return `<main class="pub"><p>سفارشی برای نمایش نیست.</p><a class="btn" href="./">بازگشت</a></main>`;
     const { order, text, shop } = lastSent;
     const sameBrowserSeller = hasShop() && getState().shop.handle === shop.handle;
@@ -199,7 +201,7 @@ export const sentPage = {
       <div class="send" id="sent-msg">
         <textarea class="send-text" rows="7" readonly aria-label="متن پیام سفارش">${esc(text)}</textarea>
         <div class="send-actions">
-          <button class="btn primary" data-act="copy-to-dm" data-handle="${esc(shop.handle)}">${icon("insta")} کپی و رفتن به دایرکت</button>
+          <a class="btn primary" href="https://ig.me/m/${esc(encodeURIComponent(shop.handle))}" target="_blank" rel="noopener" data-act="copy-to-dm" data-keep-default>${icon("insta")} کپی و رفتن به دایرکت</a>
           <button class="btn" data-act="share-send" data-target="sent-msg">${icon("share")} اشتراک</button>
           <button class="btn ghost" data-act="copy-send" data-target="sent-msg">${icon("copy")} فقط کپی</button>
         </div>
@@ -215,10 +217,10 @@ export const sentPage = {
     </main>`;
   },
   actions: {
-    async "copy-to-dm"(el) {
-      await copyText(lastSent?.text || "");
-      toast("متن کپی شد؛ در دایرکت بچسبانید و بفرستید", "ok");
-      setTimeout(() => window.open(`https://ig.me/m/${encodeURIComponent(el.dataset.handle)}`, "_blank", "noopener"), 500);
+    // the <a> itself opens Instagram; the clipboard write starts synchronously inside the same click
+    async "copy-to-dm"() {
+      const ok = await copyText(lastSent?.text || "");
+      toast(ok ? "متن کپی شد؛ در دایرکت بچسبانید و بفرستید" : "کپی نشد؛ با «فقط کپی» دوباره امتحان کنید", ok ? "ok" : "bad");
     },
   },
 };
